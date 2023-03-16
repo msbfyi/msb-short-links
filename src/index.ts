@@ -40,3 +40,6 @@ export interface Env {
 		
 	},
   };
+
+//   https://developers.cloudflare.com/api/operations/workers-kv-namespace-write-key-value-pair-with-metadata
+// https://blog.cloudflare.com/building-a-serverless-slack-bot-using-cloudflare-workers/
