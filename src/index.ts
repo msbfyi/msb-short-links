@@ -1,45 +1,45 @@
-/**
- * Welcome to Cloudflare Workers! This is your first worker.
- *
- * - Run `wrangler dev src/index.ts` in your terminal to start a development server
- * - Open a browser tab at http://localhost:8787/ to see your worker in action
- * - Run `wrangler publish src/index.ts --name my-worker` to publish your worker
- *
- * Learn more at https://developers.cloudflare.com/workers/
- */
-
-// src/index.ts
+// Worker to handle short url redirects for banners
 export interface Env {
 	SHORT_URLS: KVNamespace;
   }
+  // Add short link urls to existing search params (query params)
+  function buildParams(sourceParams: string, utm: string): string {
+	let queryParams = sourceParams;
+	if (sourceParams !== '' && utm !== '') {
+	  queryParams = `${sourceParams}&${utm}`;
+	} else if (sourceParams === '' && utm !== '') {
+		queryParams += `?${utm}`;
+	} 
+	return queryParams;
+  }
 
-  const basePath = "https://msb.link";
-  
   export default {
 	async fetch(
 	  request: Request,
 	  env: Env,
 	  _ctx: ExecutionContext
 	): Promise<Response> {
-	  const rurl = new URL(request.url);
-	  const { pathname, search } = rurl;
-		
-	  const redirectURL = await env.SHORT_URLS.get(pathname);
-		console.log(env.SHORT_URLS)
-	  if (redirectURL) {
-		let kvObj = JSON.parse(redirectURL);
-		const { url, params } = kvObj;
+	  if (request.method === 'GET') {
+		const url = new URL(request.url);
+		let { pathname, search, hash } = url;
+		// if the path name is not the root, then we need to check if it's a short url
+		if (pathname !== '/') {
+			// if the path name has a trailing slash, remove it
+			if (pathname.endsWith('/')) {
+				pathname = pathname.slice(0, -1);
+			}
+			// get the short url from the KV store
+			const redirectURL = await env.SHORT_URLS.get(pathname.toLocaleLowerCase());
+			if (redirectURL) {
+				let kvObj = JSON.parse(redirectURL);
+				const { url, params } = kvObj;
+				let newParams = buildParams(search, params);
+				var newPath = `${url}${newParams}`;
+				return Response.redirect(newPath, 301);
+			} 
+		}
+	}
 
-		var newPath = `${url}${search}&${params}`;
-	  
-		return Response.redirect(newPath, 301);
-		
-	  } else {
-		return Response.redirect(basePath, 301);
-	  }
-		
+	return fetch(request);
 	},
   };
-
-//   https://developers.cloudflare.com/api/operations/workers-kv-namespace-write-key-value-pair-with-metadata
-// https://blog.cloudflare.com/building-a-serverless-slack-bot-using-cloudflare-workers/
